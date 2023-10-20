@@ -485,14 +485,18 @@ async fn process_stdout_events(
     name: String,
 ) -> Result<()> {
     while let Some(line) = reader.next_line().await.context("An IO error occured while reading stdout from the application, I'm not actually sure when this happens?")? {
-        let event = Event::from_json_str(&line).context(format!(
+        if let Ok(event) = Event::from_json_str(&line).context(format!(
             "The application emitted a line that was not a valid event encoded in json: {}",
             line
-        ))?;
-        println!("{} {event}", Color::Default.dimmed().paint(&name));
-        if event_tx.send(event).is_err() {
-            // BinProcess is no longer interested in events
-            return Ok(());
+        )) {
+            println!("{} {event}", Color::Default.dimmed().paint(&name));
+            if event_tx.send(event).is_err() {
+                // BinProcess is no longer interested in events
+                return Ok(());
+            }
+        }
+        else {
+            println!("unable to parse line: {line:?}")
         }
     }
     Ok(())
